@@ -1,0 +1,113 @@
+/* --- RESET Y NAVEGACIÓN (Corrección de image_6b2294.png) --- */
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 8%;
+    background: #fff;
+    border-bottom: 1px solid #eee;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+}
+
+header nav ul {
+    display: flex;          /* Hace la navegación horizontal */
+    list-style: none;       /* Quita las viñetas/puntos */
+    gap: 30px;
+    margin: 0;
+    padding: 0;
+}
+
+header nav ul li a {
+    text-decoration: none;  /* Quita el subrayado azul */
+    color: #121826;
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    transition: 0.3s;
+}
+
+header nav ul li a:hover, 
+header nav ul li a.active {
+    color: #C4000D;         /* Rojo institucional */
+}
+
+.btn-quote-top {
+    background: #C4000D;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    font-weight: bold;
+    font-size: 0.75rem;
+    cursor: pointer;
+    text-transform: uppercase;
+}
+
+/* --- CUERPO DEL CONTACTO --- */
+.contact-main { padding: 80px 10%; background: #fff; }
+
+.contact-header { margin-bottom: 50px; }
+.red-tag { color: #C4000D; font-weight: 800; font-size: 0.8rem; letter-spacing: 2px; }
+.contact-header h1 { 
+    font-size: clamp(2rem, 5vw, 3.5rem); 
+    margin: 15px 0; 
+    color: #121826; 
+    font-weight: 800;
+    line-height: 1.1;
+}
+.contact-header p { color: #666; max-width: 700px; font-size: 1.1rem; line-height: 1.6; }
+
+.contact-container { display: grid; grid-template-columns: 1.5fr 1fr; gap: 40px; }
+
+/* Formulario Estilizado */
+.contact-form-box { background: white; padding: 30px; border: 1px solid #eee; }
+.input-group { margin-bottom: 20px; }
+.input-group label { display: block; font-size: 0.7rem; font-weight: 800; margin-bottom: 8px; color: #333; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+
+.styled-form input, .styled-form select, .styled-form textarea {
+    background: #f4f4f4;
+    border: 1px solid #e1e4e8;
+    padding: 15px;
+    width: 100%;
+    font-family: 'Inter', sans-serif;
+}
+
+.btn-submit-red {
+    background: #C4000D;
+    color: white;
+    border: none;
+    padding: 18px;
+    width: 100%;
+    font-weight: bold;
+    cursor: pointer;
+    text-transform: uppercase;
+    margin-top: 10px;
+}
+
+/* Tarjetas de Información */
+.info-card { display: flex; gap: 20px; background: #f8f9fa; padding: 25px; margin-bottom: 20px; border-radius: 4px; }
+.icon-red { color: #C4000D; font-size: 1.5rem; }
+.info-card h3 { font-size: 1.1rem; margin-bottom: 5px; color: #121826; }
+.info-card p { font-size: 0.9rem; color: #555; margin: 0; }
+.closed { color: #C4000D; font-weight: bold; }
+
+/* Mapa */
+.map-section { height: 400px; background: #e9ecef; position: relative; overflow: hidden; }
+.map-placeholder {
+    width: 100%; height: 100%;
+    background: linear-gradient(rgba(255,255,255,0.8), rgba(255,255,255,0.8)), url('https://upload.wikimedia.org/wikipedia/commons/e/e4/Latlong_grid.png');
+    background-size: cover;
+    display: flex; justify-content: center; align-items: center;
+}
+.map-pin { text-align: center; color: #C4000D; }
+.pin-label { background: white; padding: 8px 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); font-weight: bold; font-size: 0.8rem; margin-top: 10px; }
+
+/* Footer */
+.contact-footer { background: #fdfdfd; padding: 60px 10%; border-top: 1px solid #eee; }
+.footer-grid { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 50px; }
+.footer-links a { display: block; text-decoration: none; color: #888; font-size: 0.75rem; margin-bottom: 10px; }
+.social-icons { display: flex; gap: 20px; color: #888; margin-top: 15px; }
+
