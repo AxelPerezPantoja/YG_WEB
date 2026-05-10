@@ -1,0 +1,24 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ApiAuth", "ApiAuth.csproj", "{E230B3C8-0B3E-CAD0-E7DF-A89D5604EBAF}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{E230B3C8-0B3E-CAD0-E7DF-A89D5604EBAF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E230B3C8-0B3E-CAD0-E7DF-A89D5604EBAF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E230B3C8-0B3E-CAD0-E7DF-A89D5604EBAF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E230B3C8-0B3E-CAD0-E7DF-A89D5604EBAF}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {23B9A390-E9C5-4FAE-B753-4F8CF97CAAAC}
+	EndGlobalSection
+EndGlobal

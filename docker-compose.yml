@@ -1,0 +1,38 @@
+services:
+  api:
+    build: .
+    container_name: api-auth
+    ports:
+      - "8080:80"
+      - "8081:443"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:80
+      - ConnectionStrings__DefaultConnection=Host=postgres_db;Port=5432;Database=authdb;Username=postgres;Password=postgres123
+    depends_on:
+      - postgres_db
+    networks:
+      - auth-network
+    restart: unless-stopped
+
+  postgres_db:
+    image: postgres:15
+    container_name: postgres_auth
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+      POSTGRES_DB: authdb
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - auth-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+
+networks:
+  auth-network:
+    driver: bridge
