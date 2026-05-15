@@ -104,22 +104,21 @@ else
     app.UseHsts();
 }
 
-// Seguridad HTTPS
-app.UseHttpsRedirection();
-
-// Límite de peticiones
-app.UseMiddleware<RateLimitingMiddleware>();  
-// Meidicon de tiempo de respuesta 
-app.UseMiddleware<TimingMiddleware>(); 
-// Logging de peticiones (NUEVO)
-app.UseMiddleware<LoggingMiddleware>();
-
 // 4. Documentación Swagger (solo desarrollo)
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+
+// Seguridad HTTPS
+app.UseHttpsRedirection();
+// Límite de peticiones
+app.UseMiddleware<RateLimitingMiddleware>();  
+// Meidicon de tiempo de respuesta 
+app.UseMiddleware<TimingMiddleware>(); 
+// Logging de peticiones (NUEVO)
+app.UseMiddleware<LoggingMiddleware>();
 
 // 5. Middleware de autenticación personalizado
 app.UseMiddleware<JwtMiddleware>();

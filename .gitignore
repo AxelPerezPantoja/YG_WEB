@@ -1,0 +1,11 @@
+# .NET
+bin/
+obj/
+appsettings.Development.json
+
+# Docker
+data_db/
+
+# Varios
+.DS_Store
+*.user

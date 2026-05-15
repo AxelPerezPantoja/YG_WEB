@@ -16,15 +16,19 @@ public class TimingMiddleware
     public async Task InvokeAsync(HttpContext context)
     {
         var stopwatch = Stopwatch.StartNew();
-        
+
+        // 💡 SOLUCIÓN: Usar OnStarting para escribir el header justo antes de que se envíe la respuesta
+        context.Response.OnStarting(() => {
+            stopwatch.Stop();
+            var elapsedMs = stopwatch.ElapsedMilliseconds;
+            context.Response.Headers.Append("X-Response-Time-ms", elapsedMs.ToString());
+            
+            // También logueamos aquí para tener el tiempo real de envío
+            _logger.LogInformation($"⏱️ {context.Request.Method} {context.Request.Path} - {elapsedMs} ms");
+            
+            return Task.CompletedTask;
+        });
+
         await _next(context);
-        
-        stopwatch.Stop();
-        var elapsedMs = stopwatch.ElapsedMilliseconds;
-        
-        _logger.LogInformation($"⏱️ {context.Request.Method} {context.Request.Path} - {elapsedMs} ms");
-        
-        // Agregar header con el tiempo de respuesta
-        context.Response.Headers.Append("X-Response-Time-ms", elapsedMs.ToString());
     }
 }
