@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ApiAuth.Data;
+using ApiAuth.Models;
 
 namespace ApiAuth.Controllers;
 
@@ -18,270 +19,636 @@ public class DashboardController : ControllerBase
     }
 
     // ==========================================
-    // 1. TOTAL DE ÓRDENES
+    // MÉTODO AUXILIAR PARA TEXTO DEL PERÍODO
     // ==========================================
-    [HttpGet("total-ordenes")]
-    public async Task<IActionResult> GetTotalOrdenes()
+    private string ObtenerPeriodoTexto(int? dias, DateTime? fechaInicio, DateTime? fechaFin)
     {
-        var total = await _context.OrdenesTrabajo.CountAsync();
-        return Ok(new { total_ordenes = total });
+        if (dias.HasValue)
+            return $"últimos {dias} días";
+        else if (fechaInicio.HasValue && fechaFin.HasValue)
+            return $"{fechaInicio.Value:yyyy-MM-dd} al {fechaFin.Value:yyyy-MM-dd}";
+        else if (fechaInicio.HasValue)
+            return $"desde {fechaInicio.Value:yyyy-MM-dd}";
+        else if (fechaFin.HasValue)
+            return $"hasta {fechaFin.Value:yyyy-MM-dd}";
+        else
+            return "todo el histórico";
     }
 
     // ==========================================
-    // 2. ÓRDENES COMPLETADAS VS PENDIENTES
+    // MÉTODO AUXILIAR PARA APLICAR FILTROS DE FECHA
     // ==========================================
-    [HttpGet("estado-ordenes")]
-    public async Task<IActionResult> GetEstadoOrdenes()
+    private IQueryable<OrdenTrabajo> AplicarFiltrosFecha(IQueryable<OrdenTrabajo> query, int? dias, DateTime? fechaInicio, DateTime? fechaFin)
     {
-        var completadas = await _context.OrdenesTrabajo.CountAsync(o => o.EstadoOrden == "Completado");
-        var pendientes = await _context.OrdenesTrabajo.CountAsync(o => o.EstadoOrden == "Pendiente");
-        var enProceso = await _context.OrdenesTrabajo.CountAsync(o => o.EstadoOrden == "En proceso");
-        
-        return Ok(new
+        if (dias.HasValue && !fechaInicio.HasValue && !fechaFin.HasValue)
         {
-            completadas = completadas,
-            pendientes = pendientes,
-            en_proceso = enProceso
-        });
-    }
-
-    // ==========================================
-    // 3. INGRESOS TOTALES
-    // ==========================================
-    [HttpGet("ingresos-totales")]
-    public async Task<IActionResult> GetIngresosTotales()
-    {
-        var total = await _context.OrdenesTrabajo.SumAsync(o => o.IngresoGenerado);
-        return Ok(new { ingresos_totales = total });
-    }
-
-    // ==========================================
-    // 4. INGRESOS POR MES (Para línea de tiempo)
-    // ==========================================
-    [HttpGet("ingresos-por-mes")]
-    public async Task<IActionResult> GetIngresosPorMes()
-    {
-        var ingresos = await _context.OrdenesTrabajo
-            .GroupBy(o => new { o.Fecha.Year, o.Fecha.Month })
-            .Select(g => new
-            {
-                año = g.Key.Year,
-                mes = g.Key.Month,
-                nombre_mes = new DateTime(g.Key.Year, g.Key.Month, 1).ToString("MMMM"),
-                total = g.Sum(o => o.IngresoGenerado)
-            })
-            .OrderBy(x => x.año)
-            .ThenBy(x => x.mes)
-            .ToListAsync();
+            var fechaFinAuto = DateTime.UtcNow;
+            var fechaInicioAuto = fechaFinAuto.AddDays(-dias.Value);
+            var inicioUtc = DateTime.SpecifyKind(fechaInicioAuto, DateTimeKind.Utc);
+            var finUtc = DateTime.SpecifyKind(fechaFinAuto, DateTimeKind.Utc);
+            return query.Where(o => o.Fecha >= inicioUtc && o.Fecha <= finUtc);
+        }
         
-        return Ok(ingresos);
+        if (fechaInicio.HasValue)
+        {
+            var inicioUtc = DateTime.SpecifyKind(fechaInicio.Value, DateTimeKind.Utc);
+            query = query.Where(o => o.Fecha >= inicioUtc);
+        }
+        if (fechaFin.HasValue)
+        {
+            var finUtc = DateTime.SpecifyKind(fechaFin.Value, DateTimeKind.Utc);
+            query = query.Where(o => o.Fecha <= finUtc);
+        }
+        return query;
     }
 
     // ==========================================
-    // 5. SERVICIOS MÁS DEMANDADOS
+    // 1. Total de órdenes por lapso
     // ==========================================
-    [HttpGet("servicios-mas-demandados")]
-    public async Task<IActionResult> GetServiciosMasDemandados()
+    [HttpGet("ordenes-por-lapso")]
+    public async Task<IActionResult> GetOrdenesPorLapso(
+        [FromQuery] int? dias = null,
+        [FromQuery] DateTime? fechaInicio = null,
+        [FromQuery] DateTime? fechaFin = null,
+        [FromQuery] string? zona = null)
     {
-        var servicios = await _context.OrdenesTrabajo
-            .GroupBy(o => o.TipoServicio)
-            .Select(g => new
-            {
-                servicio = g.Key,
-                cantidad = g.Count(),
-                ingreso_total = g.Sum(o => o.IngresoGenerado)
-            })
-            .OrderByDescending(x => x.cantidad)
-            .ToListAsync();
+        var query = _context.OrdenesTrabajo.AsQueryable();
+        query = AplicarFiltrosFecha(query, dias, fechaInicio, fechaFin);
         
-        return Ok(servicios);
+        if (!string.IsNullOrEmpty(zona))
+            query = query.Where(o => o.ZonaServicio == zona);
+
+        var total = await query.CountAsync();
+        var periodoTexto = ObtenerPeriodoTexto(dias, fechaInicio, fechaFin);
+
+        return Ok(new { periodo = periodoTexto, zona_filtro = zona ?? "todas", total_ordenes = total });
     }
 
     // ==========================================
-    // 6. RENDIMIENTO POR TÉCNICO
+    // 2. Órdenes completadas por lapso
+    // ==========================================
+    [HttpGet("ordenes-completadas")]
+    public async Task<IActionResult> GetOrdenesCompletadas(
+        [FromQuery] int? dias = null,
+        [FromQuery] DateTime? fechaInicio = null,
+        [FromQuery] DateTime? fechaFin = null,
+        [FromQuery] string? zona = null)
+    {
+        var query = _context.OrdenesTrabajo.Where(o => o.EstadoOrden == "Completado");
+        query = AplicarFiltrosFecha(query, dias, fechaInicio, fechaFin);
+        
+        if (!string.IsNullOrEmpty(zona))
+            query = query.Where(o => o.ZonaServicio == zona);
+
+        var completadas = await query.CountAsync();
+        var periodoTexto = ObtenerPeriodoTexto(dias, fechaInicio, fechaFin);
+
+        return Ok(new { periodo = periodoTexto, zona_filtro = zona ?? "todas", ordenes_completadas = completadas });
+    }
+
+    // ==========================================
+    // 3. Total de ingreso por mes seleccionable
+    // ==========================================
+    [HttpGet("ingreso-por-mes")]
+    public async Task<IActionResult> GetIngresoPorMes(
+        [FromQuery] int año,
+        [FromQuery] int mes,
+        [FromQuery] string? zona = null)
+    {
+        var inicio = new DateTime(año, mes, 1, 0, 0, 0, DateTimeKind.Utc);
+        var fin = inicio.AddMonths(1).AddDays(-1);
+
+        var query = _context.OrdenesTrabajo.Where(o => o.Fecha >= inicio && o.Fecha <= fin);
+        
+        if (!string.IsNullOrEmpty(zona))
+            query = query.Where(o => o.ZonaServicio == zona);
+
+        var ingreso = await query.SumAsync(o => o.IngresoGenerado);
+
+        return Ok(new { año, mes, zona_filtro = zona ?? "todas", ingreso_total = ingreso });
+    }
+
+    // ==========================================
+    // 4. Rendimiento de técnicos
     // ==========================================
     [HttpGet("rendimiento-tecnicos")]
-    public async Task<IActionResult> GetRendimientoTecnicos()
+    public async Task<IActionResult> GetRendimientoTecnicos(
+        [FromQuery] int? dias = null,
+        [FromQuery] DateTime? fechaInicio = null,
+        [FromQuery] DateTime? fechaFin = null,
+        [FromQuery] string? zona = null)
     {
-        var tecnicos = await _context.OrdenesTrabajo
-            .Where(o => o.EstadoOrden == "Completado")
+        var query = _context.OrdenesTrabajo.AsQueryable();
+        query = AplicarFiltrosFecha(query, dias, fechaInicio, fechaFin);
+        
+        if (!string.IsNullOrEmpty(zona))
+            query = query.Where(o => o.ZonaServicio == zona);
+
+        var tecnicos = await query
             .GroupBy(o => o.TecnicoAsignado)
             .Select(g => new
             {
                 tecnico = g.Key,
-                instalaciones = g.Count(),
-                tiempo_promedio = g.Average(o => o.TiempoInstalacionHoras),
-                ingresos_generados = g.Sum(o => o.IngresoGenerado)
+                total_ordenes = g.Count(),
+                completadas = g.Count(o => o.EstadoOrden == "Completado"),
+                pendientes = g.Count(o => o.EstadoOrden == "Pendiente")
             })
-            .OrderByDescending(x => x.instalaciones)
+            .OrderByDescending(x => x.total_ordenes)
             .ToListAsync();
-        
-        return Ok(tecnicos);
+
+        var periodoTexto = ObtenerPeriodoTexto(dias, fechaInicio, fechaFin);
+
+        return Ok(new { periodo = periodoTexto, zona_filtro = zona ?? "todas", tecnicos });
     }
 
     // ==========================================
-    // 7. DEMANDA POR ZONA
+    // 5. Rendimiento por técnico + zona
     // ==========================================
-    [HttpGet("demanda-por-zona")]
-    public async Task<IActionResult> GetDemandaPorZona()
+    [HttpGet("rendimiento-tecnico-zona")]
+    public async Task<IActionResult> GetRendimientoTecnicoZona(
+        [FromQuery] int? dias = null,
+        [FromQuery] DateTime? fechaInicio = null,
+        [FromQuery] DateTime? fechaFin = null,
+        [FromQuery] string? zona = null)
     {
-        var zonas = await _context.OrdenesTrabajo
-            .GroupBy(o => o.ZonaServicio)
+        var query = _context.OrdenesTrabajo.AsQueryable();
+        query = AplicarFiltrosFecha(query, dias, fechaInicio, fechaFin);
+        
+        if (!string.IsNullOrEmpty(zona))
+            query = query.Where(o => o.ZonaServicio == zona);
+
+        var tecnicosZona = await query
+            .GroupBy(o => new { o.TecnicoAsignado, o.ZonaServicio })
             .Select(g => new
             {
-                zona = g.Key,
-                ordenes = g.Count(),
-                ingresos = g.Sum(o => o.IngresoGenerado)
+                tecnico = g.Key.TecnicoAsignado,
+                zona = g.Key.ZonaServicio,
+                total_ordenes = g.Count(),
+                completadas = g.Count(o => o.EstadoOrden == "Completado")
             })
-            .OrderByDescending(x => x.ordenes)
+            .OrderByDescending(x => x.total_ordenes)
             .ToListAsync();
-        
-        return Ok(zonas);
+
+        var periodoTexto = ObtenerPeriodoTexto(dias, fechaInicio, fechaFin);
+
+        return Ok(new { periodo = periodoTexto, zona_filtro = zona ?? "todas", detalle = tecnicosZona });
     }
 
     // ==========================================
-    // 8. MATERIALES MÁS UTILIZADOS
+    // 6. Captación por canal digital
     // ==========================================
-    [HttpGet("materiales-mas-utilizados")]
-    public async Task<IActionResult> GetMaterialesMasUtilizados()
+    [HttpGet("captacion-canal")]
+    public async Task<IActionResult> GetCaptacionCanal(
+        [FromQuery] int? dias = null,
+        [FromQuery] DateTime? fechaInicio = null,
+        [FromQuery] DateTime? fechaFin = null,
+        [FromQuery] string? zona = null)
     {
-        var materiales = await _context.OrdenesTrabajo
-            .Where(o => o.MaterialUtilizado != null)
+        var query = _context.OrdenesTrabajo.AsQueryable();
+        query = AplicarFiltrosFecha(query, dias, fechaInicio, fechaFin);
+        
+        if (!string.IsNullOrEmpty(zona))
+            query = query.Where(o => o.ZonaServicio == zona);
+
+        var canales = await query
+            .GroupBy(o => o.CanalContacto)
+            .Select(g => new
+            {
+                canal = g.Key,
+                clientes_obtenidos = g.Sum(o => o.Conversiones),
+                consultas_recibidas = g.Sum(o => o.Consultas)
+            })
+            .OrderByDescending(x => x.clientes_obtenidos)
+            .ToListAsync();
+
+        var periodoTexto = ObtenerPeriodoTexto(dias, fechaInicio, fechaFin);
+
+        return Ok(new { periodo = periodoTexto, zona_filtro = zona ?? "todas", canales });
+    }
+
+    // ==========================================
+    // 7. Tiempo promedio por servicio
+    // ==========================================
+    [HttpGet("tiempo-promedio")]
+    public async Task<IActionResult> GetTiempoPromedio(
+        [FromQuery] int? dias = null,
+        [FromQuery] DateTime? fechaInicio = null,
+        [FromQuery] DateTime? fechaFin = null,
+        [FromQuery] string? zona = null)
+    {
+        var query = _context.OrdenesTrabajo
+            .Where(o => o.EstadoOrden == "Completado" && o.TiempoInstalacionHoras > 0);
+        query = AplicarFiltrosFecha(query, dias, fechaInicio, fechaFin);
+        
+        if (!string.IsNullOrEmpty(zona))
+            query = query.Where(o => o.ZonaServicio == zona);
+
+        var tiempoPorServicio = await query
+            .GroupBy(o => o.TipoServicio)
+            .Select(g => new
+            {
+                servicio = g.Key,
+                tiempo_promedio_horas = Math.Round(g.Average(o => o.TiempoInstalacionHoras), 2),
+                total_instalaciones = g.Count()
+            })
+            .OrderByDescending(x => x.tiempo_promedio_horas)
+            .ToListAsync();
+
+        var promedioGeneral = tiempoPorServicio.Any() 
+            ? Math.Round(tiempoPorServicio.Average(x => x.tiempo_promedio_horas), 2) 
+            : 0;
+
+        var periodoTexto = ObtenerPeriodoTexto(dias, fechaInicio, fechaFin);
+
+        return Ok(new
+        {
+            periodo = periodoTexto,
+            zona_filtro = zona ?? "todas",
+            promedio_general_horas = promedioGeneral,
+            detalle_por_servicio = tiempoPorServicio
+        });
+    }
+
+    // ==========================================
+    // 8. Servicios demandados
+    // ==========================================
+    [HttpGet("servicios-demandados")]
+    public async Task<IActionResult> GetServiciosDemandados(
+        [FromQuery] int? dias = null,
+        [FromQuery] DateTime? fechaInicio = null,
+        [FromQuery] DateTime? fechaFin = null,
+        [FromQuery] string? zona = null)
+    {
+        var query = _context.OrdenesTrabajo.AsQueryable();
+        query = AplicarFiltrosFecha(query, dias, fechaInicio, fechaFin);
+        
+        if (!string.IsNullOrEmpty(zona))
+            query = query.Where(o => o.ZonaServicio == zona);
+
+        var servicios = await query
+            .GroupBy(o => o.TipoServicio)
+            .Select(g => new
+            {
+                servicio = g.Key,
+                total_ordenes = g.Count(),
+                completadas = g.Count(o => o.EstadoOrden == "Completado")
+            })
+            .OrderByDescending(x => x.total_ordenes)
+            .ToListAsync();
+
+        var periodoTexto = ObtenerPeriodoTexto(dias, fechaInicio, fechaFin);
+
+        return Ok(new { periodo = periodoTexto, zona_filtro = zona ?? "todas", servicios });
+    }
+
+    // ==========================================
+    // 9. Servicios demandados por zona
+    // ==========================================
+    [HttpGet("servicios-por-zona")]
+    public async Task<IActionResult> GetServiciosPorZona(
+        [FromQuery] int? dias = null,
+        [FromQuery] DateTime? fechaInicio = null,
+        [FromQuery] DateTime? fechaFin = null,
+        [FromQuery] string? zona = null)
+    {
+        var query = _context.OrdenesTrabajo.AsQueryable();
+        query = AplicarFiltrosFecha(query, dias, fechaInicio, fechaFin);
+        
+        if (!string.IsNullOrEmpty(zona))
+            query = query.Where(o => o.ZonaServicio == zona);
+
+        var serviciosZona = await query
+            .GroupBy(o => new { o.TipoServicio, o.ZonaServicio })
+            .Select(g => new
+            {
+                servicio = g.Key.TipoServicio,
+                zona = g.Key.ZonaServicio,
+                total_ordenes = g.Count()
+            })
+            .OrderByDescending(x => x.total_ordenes)
+            .ToListAsync();
+
+        var periodoTexto = ObtenerPeriodoTexto(dias, fechaInicio, fechaFin);
+
+        return Ok(new { periodo = periodoTexto, zona_filtro = zona ?? "todas", detalle = serviciosZona });
+    }
+
+    // ==========================================
+    // 10. Materiales más utilizados
+    // ==========================================
+    [HttpGet("materiales-utilizados")]
+    public async Task<IActionResult> GetMaterialesUtilizados(
+        [FromQuery] int? dias = null,
+        [FromQuery] DateTime? fechaInicio = null,
+        [FromQuery] DateTime? fechaFin = null,
+        [FromQuery] string? zona = null,
+        [FromQuery] int top = 10)
+    {
+        var query = _context.OrdenesTrabajo.Where(o => o.MaterialUtilizado != null);
+        query = AplicarFiltrosFecha(query, dias, fechaInicio, fechaFin);
+        
+        if (!string.IsNullOrEmpty(zona))
+            query = query.Where(o => o.ZonaServicio == zona);
+
+        var materiales = await query
             .GroupBy(o => o.MaterialUtilizado)
             .Select(g => new
             {
                 material = g.Key,
                 cantidad_total = g.Sum(o => o.CantidadMaterial),
-                ordenes = g.Count()
+                ordenes_asociadas = g.Count()
             })
             .OrderByDescending(x => x.cantidad_total)
-            .Take(10)
+            .Take(top)
             .ToListAsync();
-        
-        return Ok(materiales);
+
+        var periodoTexto = ObtenerPeriodoTexto(dias, fechaInicio, fechaFin);
+
+        return Ok(new { periodo = periodoTexto, zona_filtro = zona ?? "todas", materiales });
     }
 
     // ==========================================
-    // 9. SATISFACCIÓN DEL CLIENTE POR SERVICIO
+    // 11. Estado de órdenes por lapso
     // ==========================================
-    [HttpGet("satisfaccion-por-servicio")]
-    public async Task<IActionResult> GetSatisfaccionPorServicio()
+    [HttpGet("estado-ordenes")]
+    public async Task<IActionResult> GetEstadoOrdenes(
+        [FromQuery] int? dias = null,
+        [FromQuery] DateTime? fechaInicio = null,
+        [FromQuery] DateTime? fechaFin = null,
+        [FromQuery] string? zona = null)
     {
-        var satisfaccion = await _context.OrdenesTrabajo
-            .Where(o => o.SatisfaccionCliente > 0)
-            .GroupBy(o => o.TipoServicio)
+        var query = _context.OrdenesTrabajo.AsQueryable();
+        query = AplicarFiltrosFecha(query, dias, fechaInicio, fechaFin);
+        
+        if (!string.IsNullOrEmpty(zona))
+            query = query.Where(o => o.ZonaServicio == zona);
+
+        var estados = await query
+            .GroupBy(o => o.EstadoOrden)
             .Select(g => new
             {
-                servicio = g.Key,
-                promedio = g.Average(o => o.SatisfaccionCliente)
+                estado = g.Key,
+                total = g.Count()
             })
-            .OrderByDescending(x => x.promedio)
             .ToListAsync();
-        
-        return Ok(satisfaccion);
+
+        var periodoTexto = ObtenerPeriodoTexto(dias, fechaInicio, fechaFin);
+
+        return Ok(new { periodo = periodoTexto, zona_filtro = zona ?? "todas", estados });
     }
 
     // ==========================================
-    // 10. CAPTACIÓN POR CANAL
+    // 12. Técnicos con órdenes pendientes
     // ==========================================
-    [HttpGet("captacion-por-canal")]
-    public async Task<IActionResult> GetCaptacionPorCanal()
+    [HttpGet("tecnicos-pendientes")]
+    public async Task<IActionResult> GetTecnicosPendientes(
+        [FromQuery] int? dias = null,
+        [FromQuery] DateTime? fechaInicio = null,
+        [FromQuery] DateTime? fechaFin = null,
+        [FromQuery] string? zona = null)
     {
-        var canales = await _context.OrdenesTrabajo
-            .GroupBy(o => o.CanalContacto)
-            .Select(g => new
-            {
-                canal = g.Key,
-                clientes = g.Sum(o => o.Conversiones),
-                consultas = g.Sum(o => o.Consultas)
-            })
-            .OrderByDescending(x => x.clientes)
-            .ToListAsync();
+        var query = _context.OrdenesTrabajo.Where(o => o.EstadoOrden == "Pendiente");
+        query = AplicarFiltrosFecha(query, dias, fechaInicio, fechaFin);
         
-        return Ok(canales);
-    }
+        if (!string.IsNullOrEmpty(zona))
+            query = query.Where(o => o.ZonaServicio == zona);
 
-    // ==========================================
-    // 11. KPI COMPLETO (TODO EN UNO)
-    // ==========================================
-    [HttpGet("kpi-completo")]
-    public async Task<IActionResult> GetKPICompleto()
-    {
-        var totalOrdenes = await _context.OrdenesTrabajo.CountAsync();
-        var completadas = await _context.OrdenesTrabajo.CountAsync(o => o.EstadoOrden == "Completado");
-        var ingresosTotales = await _context.OrdenesTrabajo.SumAsync(o => o.IngresoGenerado);
-        var satisfaccionPromedio = await _context.OrdenesTrabajo
-            .Where(o => o.SatisfaccionCliente > 0)
-            .AverageAsync(o => o.SatisfaccionCliente);
-        
-        var serviciosTop = await _context.OrdenesTrabajo
-            .GroupBy(o => o.TipoServicio)
-            .Select(g => new { servicio = g.Key, total = g.Count() })
-            .OrderByDescending(x => x.total)
-            .Take(3)
-            .ToListAsync();
-        
-        var tecnicosTop = await _context.OrdenesTrabajo
-            .Where(o => o.EstadoOrden == "Completado")
+        var tecnicos = await query
             .GroupBy(o => o.TecnicoAsignado)
-            .Select(g => new { tecnico = g.Key, instalaciones = g.Count() })
-            .OrderByDescending(x => x.instalaciones)
-            .Take(3)
+            .Select(g => new
+            {
+                tecnico = g.Key,
+                ordenes_pendientes = g.Count()
+            })
+            .OrderByDescending(x => x.ordenes_pendientes)
             .ToListAsync();
+
+        var periodoTexto = ObtenerPeriodoTexto(dias, fechaInicio, fechaFin);
+
+        return Ok(new { periodo = periodoTexto, zona_filtro = zona ?? "todas", tecnicos });
+    }
+
+    // ==========================================
+    // 13. Eficiencia operativa (por zona)
+    // ==========================================
+    [HttpGet("eficiencia-operativa")]
+    public async Task<IActionResult> GetEficienciaOperativa(
+        [FromQuery] int? dias = null,
+        [FromQuery] DateTime? fechaInicio = null,
+        [FromQuery] DateTime? fechaFin = null,
+        [FromQuery] string? zona = null)
+    {
+        var query = _context.OrdenesTrabajo
+            .Where(o => o.EstadoOrden == "Completado" && o.TiempoInstalacionHoras > 0);
+        query = AplicarFiltrosFecha(query, dias, fechaInicio, fechaFin);
         
-        var zonaTop = await _context.OrdenesTrabajo
+        if (!string.IsNullOrEmpty(zona))
+            query = query.Where(o => o.ZonaServicio == zona);
+
+        var promedioGeneral = await query.AverageAsync(o => (double?)o.TiempoInstalacionHoras) ?? 0;
+        
+        var porZona = await query
             .GroupBy(o => o.ZonaServicio)
-            .Select(g => new { zona = g.Key, ordenes = g.Count() })
-            .OrderByDescending(x => x.ordenes)
-            .FirstOrDefaultAsync();
-        
+            .Select(g => new
+            {
+                zona = g.Key,
+                tiempo_promedio_horas = Math.Round(g.Average(o => o.TiempoInstalacionHoras), 2),
+                total_instalaciones = g.Count()
+            })
+            .OrderBy(x => x.tiempo_promedio_horas)
+            .ToListAsync();
+
+        var periodoTexto = ObtenerPeriodoTexto(dias, fechaInicio, fechaFin);
+
         return Ok(new
         {
-            total_ordenes = totalOrdenes,
-            porcentaje_completadas = totalOrdenes > 0 ? Math.Round((double)completadas / totalOrdenes * 100, 2) : 0,
-            ingresos_totales = ingresosTotales,
-            satisfaccion_promedio = Math.Round(satisfaccionPromedio, 2),
-            servicios_mas_demandados = serviciosTop,
-            tecnicos_top = tecnicosTop,
-            zona_mayor_demanda = zonaTop
+            periodo = periodoTexto,
+            zona_filtro = zona ?? "todas",
+            tiempo_promedio_general_horas = Math.Round(promedioGeneral, 2),
+            detalle_por_zona = porZona
         });
     }
 
     // ==========================================
-    // 12. TIEMPO PROMEDIO DE INSTALACIÓN
+    // 14. Clientes recurrentes
     // ==========================================
-    [HttpGet("tiempo-promedio")]
-    public async Task<IActionResult> GetTiempoPromedio([FromQuery] string? tipoServicio = null)
+    [HttpGet("clientes-recurrentes")]
+    public async Task<IActionResult> GetClientesRecurrentes(
+        [FromQuery] int? dias = null,
+        [FromQuery] DateTime? fechaInicio = null,
+        [FromQuery] DateTime? fechaFin = null,
+        [FromQuery] string? zona = null)
     {
-        var query = _context.OrdenesTrabajo.Where(o => o.EstadoOrden == "Completado");
+        var query = _context.OrdenesTrabajo.AsQueryable();
+        query = AplicarFiltrosFecha(query, dias, fechaInicio, fechaFin);
         
-        if (!string.IsNullOrEmpty(tipoServicio))
-            query = query.Where(o => o.TipoServicio == tipoServicio);
-        
-        var promedio = await query.AverageAsync(o => o.TiempoInstalacionHoras);
-        
-        return Ok(new { tiempo_promedio_horas = promedio });
+        if (!string.IsNullOrEmpty(zona))
+            query = query.Where(o => o.ZonaServicio == zona);
+
+        var ordenesPorCliente = await query
+            .GroupBy(o => o.OrdenId)
+            .Select(g => new
+            {
+                ordenId = g.Key,
+                cantidad = g.Count()
+            })
+            .ToListAsync();
+
+        var recurrentes = ordenesPorCliente.Count(x => x.cantidad > 1);
+        var totalClientes = ordenesPorCliente.Count;
+
+        var periodoTexto = ObtenerPeriodoTexto(dias, fechaInicio, fechaFin);
+
+        return Ok(new
+        {
+            periodo = periodoTexto,
+            zona_filtro = zona ?? "todas",
+            clientes_recurrentes = recurrentes,
+            total_clientes = totalClientes,
+            porcentaje_recurrencia = totalClientes > 0 ? Math.Round((double)recurrentes / totalClientes * 100, 2) : 0
+        });
     }
 
-    [HttpGet("equipos-por-vencer")]
-public async Task<IActionResult> GetEquiposPorVencer([FromQuery] int dias = 30)
+    // ==========================================
+// 15. Tasa conversión (consulta → conversión)
+// ==========================================
+[HttpGet("tasa-conversion")]
+public async Task<IActionResult> GetTasaConversion(
+    [FromQuery] int? dias = null,
+    [FromQuery] DateTime? fechaInicio = null,
+    [FromQuery] DateTime? fechaFin = null,
+    [FromQuery] string? zona = null)
 {
-    var fechaLimite = DateTime.UtcNow.AddDays(dias);
+    var query = _context.OrdenesTrabajo.AsQueryable();
+    query = AplicarFiltrosFecha(query, dias, fechaInicio, fechaFin);
     
-    var equipos = await _context.OrdenesTrabajo
-        .Where(o => o.FechaVencimiento.HasValue && o.FechaVencimiento <= fechaLimite)
-        .Select(o => new
+    if (!string.IsNullOrEmpty(zona))
+        query = query.Where(o => o.ZonaServicio == zona);
+
+    // Traer los datos agregados por zona (sin Math.Round en SQL)
+    var datosPorZona = await query
+        .GroupBy(o => o.ZonaServicio)
+        .Select(g => new
         {
-            material = o.MaterialUtilizado,
-            fecha_vencimiento = o.FechaVencimiento,
-            cantidad = o.CantidadMaterial
+            zona = g.Key,
+            consultas = g.Sum(o => o.Consultas),
+            conversiones = g.Sum(o => o.Conversiones)
         })
         .ToListAsync();
-    
+
+    // Calcular tasa con Math.Round ya en memoria (cliente)
+    var porZona = datosPorZona.Select(d => new
+    {
+        zona = d.zona,
+        consultas = d.consultas,
+        conversiones = d.conversiones,
+        tasa = d.consultas > 0 
+            ? Math.Round((double)d.conversiones / d.consultas * 100, 2) 
+            : 0
+    }).OrderByDescending(x => x.tasa).ToList();
+
+    var totalConsultas = datosPorZona.Sum(d => d.consultas);
+    var totalConversiones = datosPorZona.Sum(d => d.conversiones);
+
+    var ratio = totalConsultas > 0
+        ? (double)totalConversiones / totalConsultas
+        : 0;
+
+    var periodoTexto = ObtenerPeriodoTexto(dias, fechaInicio, fechaFin);
+
     return Ok(new
     {
-        total_equipos_por_vencer = equipos.Count,
-        equipos = equipos
+        periodo = periodoTexto,
+        zona_filtro = zona ?? "todas",
+        consultas_totales = totalConsultas,
+        conversiones_totales = totalConversiones,
+        tasa_conversion = Math.Round(ratio * 100, 2),
+        detalle_por_zona = porZona
     });
 }
+
+    // ==========================================
+    // 16. Satisfacción por servicio
+    // ==========================================
+    [HttpGet("satisfaccion-servicio")]
+    public async Task<IActionResult> GetSatisfaccionServicio(
+        [FromQuery] int? dias = null,
+        [FromQuery] DateTime? fechaInicio = null,
+        [FromQuery] DateTime? fechaFin = null,
+        [FromQuery] string? zona = null)
+    {
+        var query = _context.OrdenesTrabajo.Where(o => o.SatisfaccionCliente > 0);
+        query = AplicarFiltrosFecha(query, dias, fechaInicio, fechaFin);
+        
+        if (!string.IsNullOrEmpty(zona))
+            query = query.Where(o => o.ZonaServicio == zona);
+
+        var satisfaccion = await query
+            .GroupBy(o => o.TipoServicio)
+            .Select(g => new
+            {
+                servicio = g.Key,
+                promedio = Math.Round(g.Average(o => o.SatisfaccionCliente), 2),
+                total_valoraciones = g.Count()
+            })
+            .OrderByDescending(x => x.promedio)
+            .ToListAsync();
+
+        var periodoTexto = ObtenerPeriodoTexto(dias, fechaInicio, fechaFin);
+
+        return Ok(new
+        {
+            periodo = periodoTexto,
+            zona_filtro = zona ?? "todas",
+            escala = "1 a 5 (1=Muy malo, 5=Muy bueno)",
+            detalle_por_servicio = satisfaccion
+        });
+    }
+
+    // ==========================================
+    // 17. Costo e ingreso por servicio
+    // ==========================================
+    [HttpGet("costo-ingreso-servicio")]
+    public async Task<IActionResult> GetCostoIngresoServicio(
+        [FromQuery] int? dias = null,
+        [FromQuery] DateTime? fechaInicio = null,
+        [FromQuery] DateTime? fechaFin = null,
+        [FromQuery] string? zona = null)
+    {
+        var query = _context.OrdenesTrabajo.AsQueryable();
+        query = AplicarFiltrosFecha(query, dias, fechaInicio, fechaFin);
+        
+        if (!string.IsNullOrEmpty(zona))
+            query = query.Where(o => o.ZonaServicio == zona);
+
+        var resumen = await query
+            .GroupBy(o => o.TipoServicio)
+            .Select(g => new
+            {
+                servicio = g.Key,
+                ingreso_total = g.Sum(o => o.IngresoGenerado),
+                costo_total = g.Sum(o => o.CostoServicio),
+                ganancia = g.Sum(o => o.IngresoGenerado) - g.Sum(o => o.CostoServicio)
+            })
+            .OrderByDescending(x => x.ingreso_total)
+            .ToListAsync();
+
+        var ingresoGeneral = resumen.Sum(x => x.ingreso_total);
+        var costoGeneral = resumen.Sum(x => x.costo_total);
+
+        var periodoTexto = ObtenerPeriodoTexto(dias, fechaInicio, fechaFin);
+
+        return Ok(new
+        {
+            periodo = periodoTexto,
+            zona_filtro = zona ?? "todas",
+            totales = new
+            {
+                ingreso_total = ingresoGeneral,
+                costo_total = costoGeneral,
+                ganancia_total = ingresoGeneral - costoGeneral
+            },
+            detalle_por_servicio = resumen
+        });
+    }
 }
