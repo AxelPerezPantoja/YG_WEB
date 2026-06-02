@@ -1,6 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Text;
 using Microsoft.IdentityModel.Tokens;
+using ApiAuth.Controllers;  
 
 namespace ApiAuth.Middleware;
 
@@ -30,7 +31,7 @@ public class JwtMiddleware
         try
         {
             var tokenHandler = new JwtSecurityTokenHandler();
-            var key = Encoding.ASCII.GetBytes(_config["Jwt:Key"] ?? "MiClaveSuperSecretaParaJWT2026!");
+            var key = Encoding.ASCII.GetBytes(_config["Jwt:Key"] ?? "2P2mRcSjIlAcutYaDAZ2Bg8cVMEF07fQ0t01TsbAf0hPujiOs8GqOD4bFniZC8Rc");
             
             tokenHandler.ValidateToken(token, new TokenValidationParameters
             {
@@ -46,11 +47,17 @@ public class JwtMiddleware
             var jwtToken = (JwtSecurityToken)validatedToken;
             var userId = int.Parse(jwtToken.Claims.First(x => x.Type == "nameid").Value);
             
-            context.Items["UserId"] = userId;
+            // Después de obtener userId
+context.Items["UserId"] = userId;
+MiddlewareMetricsController.TotalTokensValidated++;
+MiddlewareMetricsController.LastTokenValidation = DateTime.UtcNow;
+
+            
         }
         catch
-        {
-            // Token inválido
-        }
+{
+    MiddlewareMetricsController.TotalTokensInvalid++;
+    MiddlewareMetricsController.LastTokenValidation = DateTime.UtcNow;
+}
     }
 }

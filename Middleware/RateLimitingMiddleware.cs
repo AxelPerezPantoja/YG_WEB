@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using ApiAuth.Controllers;  
 
 namespace ApiAuth.Middleware;
 
@@ -53,6 +54,14 @@ public class RateLimitingMiddleware
             requestInfo.Count++;
             _requests[ip] = requestInfo;
         }
+
+        // Después de contar la petición, actualizar estadísticas
+MiddlewareMetricsController.RateLimitRequests[ip] = (requestInfo.Count, requestInfo.ResetTime, DateTime.UtcNow);
+if (requestInfo.Count >= _maxRequests)
+{
+    MiddlewareMetricsController.TotalRateLimitBlocks++;
+    MiddlewareMetricsController.LastRateLimitBlock = DateTime.UtcNow;
+}
 
         await _next(context);
     }
