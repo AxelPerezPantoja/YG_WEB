@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YG Soluciones · Dashboard Interactivo</title>
+    <!-- Chart.js desde CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <!-- Hoja de estilos externa -->
+    <link rel="stylesheet" href="Dashstyle.css">
+</head>
+<body>
+    <header class="header">
+        <div class="logo-area">
+            <div class="logo-icon">YG</div>
+            <div class="title">
+                <h1>YG Soluciones</h1>
+                <span>Dashboard Operativo · Nicaragua</span>
+            </div>
+        </div>
+        <div class="filters">
+            <select id="filtroZona">
+                <option value="todas">🌐 Todas las zonas</option>
+                <option value="Managua">📍 Managua</option>
+                <option value="León">📍 León</option>
+                <option value="Granada">📍 Granada</option>
+                <option value="Masaya">📍 Masaya</option>
+            </select>
+            <select id="filtroServicio">
+                <option value="todos">⚙️ Todos los servicios</option>
+                <option value="Telecomunicaciones">📡 Telecomunicaciones</option>
+                <option value="Electricidad">⚡ Electricidad</option>
+                <option value="Seguridad Electrónica">🔐 Seguridad Electrónica</option>
+                <option value="Informática">💻 Informática</option>
+            </select>
+            <select id="filtroTecnico">
+                <option value="todos">👷 Todos los técnicos</option>
+                <option value="Carlos López">Carlos López</option>
+                <option value="María Castillo">María Castillo</option>
+                <option value="José Gómez">José Gómez</option>
+                <option value="Ana Martínez">Ana Martínez</option>
+            </select>
+            <button id="aplicarFiltros">🔍 Aplicar filtros</button>
+            <button id="resetFiltros" class="btn-alert">⚠️ Alertas (3)</button>
+        </div>
+    </header>
+
+    <div class="toggle-panel">
+        <span style="font-weight:600;color:var(--accent);">🎛️ Paneles:</span>
+        <label class="toggle-group" data-target="kpi-section"><input type="checkbox" checked><span class="switch"></span> KPIs</label>
+        <label class="toggle-group" data-target="chart-servicios"><input type="checkbox" checked><span class="switch"></span> Servicios</label>
+        <label class="toggle-group" data-target="chart-ingresos"><input type="checkbox" checked><span class="switch"></span> Ingresos</label>
+        <label class="toggle-group" data-target="chart-canales"><input type="checkbox" checked><span class="switch"></span> Canales</label>
+        <label class="toggle-group" data-target="chart-zonas"><input type="checkbox" checked><span class="switch"></span> Zonas</label>
+        <label class="toggle-group" data-target="tabla-tecnicos"><input type="checkbox" checked><span class="switch"></span> Técnicos</label>
+    </div>
+
+    <div class="main-grid" id="mainContainer">
+        <!-- KPIs -->
+        <div class="kpi-row" id="kpi-section">
+            <div class="kpi-card"><div class="kpi-value" id="kpi-instalaciones">284</div><div class="kpi-label">🔧 Instalaciones realizadas</div></div>
+            <div class="kpi-card"><div class="kpi-value" id="kpi-pendientes">23</div><div class="kpi-label">⏳ Órdenes pendientes</div><span class="alert-badge" id="alertaPendientes" style="display:none;">ALTA</span></div>
+            <div class="kpi-card"><div class="kpi-value" id="kpi-satisfaccion">89%</div><div class="kpi-label">⭐ Satisfacción cliente</div></div>
+            <div class="kpi-card"><div class="kpi-value" id="kpi-tiempo">2.4h</div><div class="kpi-label">⏱️ Tiempo promedio instalación</div></div>
+            <div class="kpi-card"><div class="kpi-value" id="kpi-conversion">18.5%</div><div class="kpi-label">📈 Conversión clientes</div></div>
+        </div>
+
+        <!-- Servicios más demandados -->
+        <div class="card span-2" id="chart-servicios">
+            <div class="card-header">📊 Servicios más demandados <span style="color:var(--accent);">(filtro aplicado)</span></div>
+            <div class="chart-container"><canvas id="barServicios"></canvas></div>
+        </div>
+
+        <!-- Ingresos mensuales -->
+        <div class="card span-2" id="chart-ingresos">
+            <div class="card-header">💵 Ingresos por mes (C$) <span style="color:var(--success);">Tendencia</span></div>
+            <div class="chart-container large"><canvas id="lineaIngresos"></canvas></div>
+        </div>
+
+        <!-- Captación por canal digital -->
+        <div class="card" id="chart-canales">
+            <div class="card-header">📱 Captación por canal digital</div>
+            <div class="chart-container"><canvas id="pieCanales"></canvas></div>
+        </div>
+
+        <!-- Demanda por zona -->
+        <div class="card" id="chart-zonas">
+            <div class="card-header">🗺️ Demanda por zona</div>
+            <div class="chart-container"><canvas id="barZonas"></canvas></div>
+        </div>
+
+        <!-- Tabla técnicos -->
+        <div class="card span-2" id="tabla-tecnicos">
+            <div class="card-header">👷 Rendimiento de técnicos (último mes)</div>
+            <div style="overflow-x:auto;">
+                <table style="width:100%;border-collapse:collapse;font-size:0.85rem;" id="tablaTecnicosBody">
+                    <thead><tr style="color:var(--text2);text-align:left;border-bottom:1px solid var(--border);">
+                        <th style="padding:8px;">Técnico</th><th>Instalaciones</th><th>Horas trabajadas</th><th>Eficiencia</th><th>Material más usado</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="footer-note">YG Soluciones · Datos simulados Q1 2026 · Dashboard interactivo con filtros</div>
+
+    <!-- Script externo al final del body -->
+    <script src="dash.js"></script>
+</body>
+</html>
