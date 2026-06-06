@@ -9,3 +9,5 @@ data_db/
 # Varios
 .DS_Store
 *.user
+obj/
+bin/
