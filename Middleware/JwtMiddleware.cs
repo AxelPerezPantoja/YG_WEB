@@ -54,10 +54,21 @@ MiddlewareMetricsController.LastTokenValidation = DateTime.UtcNow;
 
             
         }
-        catch
-{
-    MiddlewareMetricsController.TotalTokensInvalid++;
-    MiddlewareMetricsController.LastTokenValidation = DateTime.UtcNow;
+        catch(Exception ex)
+        {
+            Console.WriteLine("ERROR JWT:");
+            Console.WriteLine(ex.Message);
+
+            MiddlewareMetricsController.TotalTokensInvalid++;
+            MiddlewareMetricsController.LastTokenValidation = DateTime.UtcNow;
+        }
+// catch(Exception ex)
+// {
+//     Console.WriteLine("ERROR JWT:");
+//     Console.WriteLine(ex.Message);
+
+//     MiddlewareMetricsController.TotalTokensInvalid++;
+//     MiddlewareMetricsController.LastTokenValidation = DateTime.UtcNow;
+// }
 }
-    }
 }
