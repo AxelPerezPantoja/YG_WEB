@@ -15,34 +15,40 @@
             <div class="logo-icon">YG</div>
             <div class="title">
                 <h1>YG Soluciones</h1>
-                <span>Dashboard Operativo · Nicaragua</span>
+                <span>Dashboard Ejecutivo de Servicios y Operaciones</span>
             </div>
         </div>
-        <div class="filters">
-            <select id="filtroZona">
-                <option value="todas">🌐 Todas las zonas</option>
-                <option value="Managua">📍 Managua</option>
-                <option value="León">📍 León</option>
-                <option value="Granada">📍 Granada</option>
-                <option value="Masaya">📍 Masaya</option>
-            </select>
-            <select id="filtroServicio">
-                <option value="todos">⚙️ Todos los servicios</option>
-                <option value="Telecomunicaciones">📡 Telecomunicaciones</option>
-                <option value="Electricidad">⚡ Electricidad</option>
-                <option value="Seguridad Electrónica">🔐 Seguridad Electrónica</option>
-                <option value="Informática">💻 Informática</option>
-            </select>
-            <select id="filtroTecnico">
-                <option value="todos">👷 Todos los técnicos</option>
-                <option value="Carlos López">Carlos López</option>
-                <option value="María Castillo">María Castillo</option>
-                <option value="José Gómez">José Gómez</option>
-                <option value="Ana Martínez">Ana Martínez</option>
-            </select>
-            <button id="aplicarFiltros">🔍 Aplicar filtros</button>
-            <button id="resetFiltros" class="btn-alert">⚠️ Alertas (3)</button>
-        </div>
+<div class="filters">
+
+    <div class="filter-group">
+        <label>⚙️ Servicio</label>
+        <select id="filtroServicio">
+            <option value="todos">Todos los servicios</option>
+            <option value="Telecomunicaciones">Telecomunicaciones</option>
+            <option value="Electricidad">Electricidad</option>
+            <option value="Seguridad Electrónica">Seguridad Electrónica</option>
+            <option value="Informática">Informática</option>
+        </select>
+    </div>
+
+    <div class="filter-group">
+        <label>👷 Técnico</label>
+        <select id="filtroTecnico">
+            <option value="todos">Cargando...</option>
+        </select>
+    </div>
+
+    <div class="actions">
+        <button id="aplicarFiltros">
+            🔍 Aplicar
+        </button>
+
+        <button id="resetFiltros" class="btn-alert">
+            🔔 Alertas (6)
+        </button>
+    </div>
+
+</div>
     </header>
 
     <div class="toggle-panel">
@@ -53,6 +59,8 @@
         <label class="toggle-group" data-target="chart-canales"><input type="checkbox" checked><span class="switch"></span> Canales</label>
         <label class="toggle-group" data-target="chart-zonas"><input type="checkbox" checked><span class="switch"></span> Zonas</label>
         <label class="toggle-group" data-target="tabla-tecnicos"><input type="checkbox" checked><span class="switch"></span> Técnicos</label>
+        <label class="toggle-group" data-target="chart-estados"><input type="checkbox" checked><span class="switch"></span>Estados</label>
+        <label class="toggle-group" data-target="chart-materiales"><input type="checkbox" checked><span class="switch"></span>Materiales</label>
     </div>
 
     <div class="main-grid" id="mainContainer">
@@ -63,6 +71,8 @@
             <div class="kpi-card"><div class="kpi-value" id="kpi-satisfaccion">89%</div><div class="kpi-label">⭐ Satisfacción cliente</div></div>
             <div class="kpi-card"><div class="kpi-value" id="kpi-tiempo">2.4h</div><div class="kpi-label">⏱️ Tiempo promedio instalación</div></div>
             <div class="kpi-card"><div class="kpi-value" id="kpi-conversion">18.5%</div><div class="kpi-label">📈 Conversión clientes</div></div>
+            <div class="kpi-card"><div class="kpi-value" id="kpi-ingresos">C$0</div><div class="kpi-label">💰 Ingresos Totales</div></div>
+            <div class="kpi-card"><div class="kpi-value" id="kpi-ganancia">C$0</div><div class="kpi-label">📈 Ganancia Total</div></div>
         </div>
 
         <!-- Servicios más demandados -->
@@ -78,26 +88,64 @@
         </div>
 
         <!-- Captación por canal digital -->
-        <div class="card" id="chart-canales">
+        <div class="card span-2" id="chart-canales">
             <div class="card-header">📱 Captación por canal digital</div>
             <div class="chart-container"><canvas id="pieCanales"></canvas></div>
         </div>
 
         <!-- Demanda por zona -->
-        <div class="card" id="chart-zonas">
+        <div class="card span-2" id="chart-zonas">
             <div class="card-header">🗺️ Demanda por zona</div>
             <div class="chart-container"><canvas id="barZonas"></canvas></div>
         </div>
+        <div class="card span-2" id="chart-materiales">
+            <div class="card-header">
+                📦 Materiales más utilizados
+            </div>
+            <div class="chart-container">
+                <canvas id="barMateriales"></canvas>
+            </div>
+        </div>
+        <div class="card span-2" id="chart-finanzas">
+            <div class="card-header">
+                💰 Ganancia por Servicio
+            </div>
 
+            <div class="chart-container">
+                <canvas id="barGanancias"></canvas>
+            </div>
+        </div>
+        <!--Estado de órdenes -->
+        <div class="card span-2" id="chart-estados">
+            <div class="card-header">
+                📋 Estado de órdenes
+            </div>
+
+            <div class="chart-container">
+                <canvas id="pieEstados"></canvas>
+            </div>
+        </div>
         <!-- Tabla técnicos -->
         <div class="card span-2" id="tabla-tecnicos">
-            <div class="card-header">👷 Rendimiento de técnicos (último mes)</div>
+            <div class="card-header">
+                👷 Rendimiento de Técnicos
+            </div>
+
             <div style="overflow-x:auto;">
-                <table style="width:100%;border-collapse:collapse;font-size:0.85rem;" id="tablaTecnicosBody">
-                    <thead><tr style="color:var(--text2);text-align:left;border-bottom:1px solid var(--border);">
-                        <th style="padding:8px;">Técnico</th><th>Instalaciones</th><th>Horas trabajadas</th><th>Eficiencia</th><th>Material más usado</th></tr></thead>
-                    <tbody></tbody>
-                </table>
+            <table style="width:100%;border-collapse:collapse;font-size:0.85rem;">
+                <thead>
+                    <tr>
+                        <th>Técnico</th>
+                        <th>Total órdenes</th>
+                        <th>Completadas</th>
+                        <th>Eficiencia</th>
+                        <th>Pendientes</th>
+                    </tr>
+                </thead>
+
+                <tbody id="tablaTecnicosBody">
+                </tbody>
+            </table>
             </div>
         </div>
     </div>

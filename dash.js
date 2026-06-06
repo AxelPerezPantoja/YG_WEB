@@ -1,3 +1,64 @@
+const API_URL = "http://localhost:5230/api";
+const TOKEN =
+"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1laWQiOiIyIiwidW5pcXVlX25hbWUiOiJBeGVsX1BlcmV6IiwiZW1haWwiOiJheGVscGVyZXowNDA0MDdAZ21haWwuY29tIiwicm9sZSI6IkFkbWluIiwibmJmIjoxNzgwNjI0MTcyLCJleHAiOjE3ODA2NTI5NzIsImlhdCI6MTc4MDYyNDE3MiwiaXNzIjoiQXBpQXV0aCIsImF1ZCI6IkFwaUF1dGhDbGllbnQifQ._TxUvHz8wFdc2MI1pE-L_veTn2pr-SnoC0zSaNxKi2Q";
+
+console.log("TOKEN:", TOKEN);
+
+async function obtenerDatos(endpoint) {
+    try {
+
+        console.log("=================================");
+        console.log("Endpoint:", endpoint);
+        console.log("TOKEN:", TOKEN);
+        console.log("Authorization:", `Bearer ${TOKEN}`);
+
+        const response = await fetch(`${API_URL}/${endpoint}`, {
+            method: "GET",
+            headers: {
+                "Authorization": `Bearer ${TOKEN}`,
+                "Content-Type": "application/json"
+            }
+        });
+
+        console.log("Status:", response.status);
+
+        const texto = await response.text();
+
+        console.log("Respuesta:", texto);
+
+        if (!response.ok) {
+            console.error("❌ Error HTTP:", response.status);
+            throw new Error(`Error ${response.status}`);
+        }
+
+        const data = JSON.parse(texto);
+
+        console.log("✅ Data:", data);
+
+        return data;
+
+    } catch (error) {
+
+        console.error("❌ Error en fetch:", error);
+
+        throw error;
+    }
+}
+async function probarConexion() {
+    try {
+        const ordenes = await obtenerDatos(
+            "Dashboard/ordenes-por-lapso"
+        );
+
+        console.log("✅ Datos recibidos:", ordenes);
+
+    } catch (error) {
+        console.error("❌ Error:", error);
+    }
+}
+
+probarConexion();
+
 (function() {
     // ─── DATOS BASE ────────────────────────
     const zonas = ['Managua', 'León', 'Granada', 'Masaya'];
@@ -91,7 +152,8 @@
     }
 
     // Gráficos
-    let barServiciosChart, lineaIngresosChart, pieCanalesChart, barZonasChart;
+    let barServiciosChart,lineaIngresosChart,pieCanalesChart,barZonasChart,pieEstadosChart,barGananciasChart,barMaterialesChart;
+    
 
     function crearGraficos() {
         const ctx1 = document.getElementById('barServicios').getContext('2d');
@@ -125,83 +187,632 @@
         });
         barZonasChart = new Chart(ctx4, {
             type: 'bar',
-            data: { labels: [], datasets: [{ label: 'Demanda', data: [], backgroundColor: '#f77f00' }] },
-            options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false,
-                plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#9aa4bf' },
-                        grid: { color: '#1e2d45' } }, y: { ticks: { color: '#9aa4bf' } } } }
+            data: {
+                labels: [],
+                datasets: []
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: '#f3f4f7'
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            color: '#9aa4bf'
+                        },
+                        grid: {
+                            color: '#1e2d45'
+                        }
+                    },
+                    x: {
+                        ticks: {
+                            color: '#9aa4bf'
+                        }
+                    }
+                }
+            }
         });
+        
+        const ctx5 =
+            document
+                .getElementById("barMateriales")
+                .getContext("2d");
+
+        barMaterialesChart = new Chart(ctx5, {
+            type: "bar",
+            data: {
+                labels: [],
+                datasets: [{
+                    label: "Cantidad utilizada",
+                    data: [],
+                }]
+            },
+            options: {
+                indexAxis: "y",
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                }
+            }
+        });
+
+        const ctxEstados =
+            document.getElementById("pieEstados")
+            .getContext("2d");
+
+        pieEstadosChart = new Chart(ctxEstados, {
+            type: "doughnut",
+
+            data: {
+                labels: [],
+                datasets: [{
+                    data: [],
+                    backgroundColor: [
+                        "#06d6a0",
+                        "#ffd166",
+                        "#ef476f"
+                    ]
+                }]
+            },
+
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+
+                plugins: {
+                    legend: {
+                        position: "bottom",
+                        labels: {
+                            color: "#9aa4bf"
+                        }
+                    }
+                }
+            }
+        });
+
+
+        const ctxGanancias =
+            document.getElementById(
+                "barGanancias"
+            ).getContext("2d");
+
+        barGananciasChart =
+            new Chart(ctxGanancias, {
+                type: "bar",
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: "Ganancia C$",
+                        data: []
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false
+                }
+            });
+
     }
 
-    function actualizarGraficos(ordenesFiltradas) {
-        // Servicios más demandados
-        const conteoServicios = {};
-        servicios.forEach(s => conteoServicios[s] = 0);
-        ordenesFiltradas.forEach(o => conteoServicios[o.servicio]++);
-        barServiciosChart.data.labels = servicios;
-        barServiciosChart.data.datasets[0].data = servicios.map(s => conteoServicios[s]);
-        barServiciosChart.update();
+    async function cargarMaterialesUtilizados() {
 
-        // Ingresos mensuales (simulamos meses con los datos filtrados, usando una distribución simple)
+        try {
+
+            const data =
+                await obtenerDatos(
+                    "Dashboard/materiales-utilizados"
+                );
+
+            console.log(
+                "📦 Materiales:",
+                data
+            );
+
+            const top5 =
+                data.materiales
+                    .sort(
+                        (a, b) =>
+                            b.cantidad_total -
+                            a.cantidad_total
+                    )
+                    .slice(0, 5);
+
+            barMaterialesChart.data.labels =
+                top5.map(
+                    m => m.material
+                );
+
+            barMaterialesChart.data.datasets[0].data =
+                top5.map(
+                    m => m.cantidad_total
+                );
+
+            barMaterialesChart.update();
+
+        }
+        catch(error){
+
+            console.error(
+                "Error materiales:",
+                error
+            );
+
+        }
+    }
+
+    async function actualizarGraficos() {
+
+        // SERVICIOS MÁS DEMANDADOS
+        try {
+
+            const dataServicios = await obtenerDatos(
+                "Dashboard/servicios-demandados"
+            );
+
+            console.log("📊 Servicios demandados:", dataServicios);
+
+            barServiciosChart.data.labels =
+                dataServicios.servicios.map(s => s.servicio);
+
+            barServiciosChart.data.datasets[0].data =
+                dataServicios.servicios.map(s => s.total_ordenes);
+
+            barServiciosChart.update();
+
+        } catch (error) {
+            console.error("❌ Error cargando servicios demandados:", error);
+        }
+
+        // =====================================
+        // TODO LO DEMÁS SIGUE SIMULADO POR AHORA
+        // =====================================
+
         const meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun'];
-        const ingresosPorMes = new Array(6).fill(0);
-        ordenesFiltradas.forEach((o, i) => {
-            const mesIdx = i % 6;
-            ingresosPorMes[mesIdx] += o.ingresos;
-        });
+        const ingresosPorMes = [0, 0, 0, 0, 0, 0];
+
         lineaIngresosChart.data.labels = meses;
         lineaIngresosChart.data.datasets[0].data = ingresosPorMes;
         lineaIngresosChart.update();
 
-        // Canales digitales
-        const conteoCanales = {};
-        canales.forEach(c => conteoCanales[c] = 0);
-        ordenesFiltradas.forEach(o => conteoCanales[o.canal]++);
-        pieCanalesChart.data.labels = canales;
-        pieCanalesChart.data.datasets[0].data = canales.map(c => conteoCanales[c]);
-        pieCanalesChart.update();
-
-        // Demanda por zona
-        const conteoZonas = {};
-        zonas.forEach(z => conteoZonas[z] = 0);
-        ordenesFiltradas.forEach(o => conteoZonas[o.zona]++);
-        barZonasChart.data.labels = zonas;
-        barZonasChart.data.datasets[0].data = zonas.map(z => conteoZonas[z]);
+        barZonasChart.data.labels = ['Managua', 'León', 'Granada', 'Masaya'];
+        barZonasChart.data.datasets[0].data = [0, 0, 0, 0];
         barZonasChart.update();
-
-        // Tabla técnicos
-        const rendimientoTecnicos = {};
-        tecnicosNombres.forEach(t => rendimientoTecnicos[t] = { inst: 0, horas: 0, materiales: {} });
-        ordenesFiltradas.forEach(o => {
-            if (rendimientoTecnicos[o.tecnico]) {
-                rendimientoTecnicos[o.tecnico].inst += 1;
-                rendimientoTecnicos[o.tecnico].horas += o.tiempo;
-                rendimientoTecnicos[o.tecnico].materiales[o.material] = (rendimientoTecnicos[o.tecnico]
-                    .materiales[o.material] || 0) + 1;
-            }
-        });
-        const tbody = document.querySelector('#tablaTecnicosBody tbody');
-        tbody.innerHTML = '';
-        tecnicosNombres.forEach(t => {
-            const datos = rendimientoTecnicos[t];
-            const eficiencia = datos.horas > 0 ? (datos.inst / datos.horas).toFixed(2) : '0';
-            const matMasUsado = Object.entries(datos.materiales).sort((a, b) => b[1] - a[1])[0]?.[0] ||
-                '-';
-            tbody.innerHTML += `<tr style="border-bottom:1px solid var(--border);">
-                <td style="padding:8px;">${t}</td>
-                <td>${datos.inst}</td>
-                <td>${datos.horas.toFixed(1)}</td>
-                <td>${eficiencia} inst/h</td>
-                <td>${matMasUsado}</td>
-              </tr>`;
-        });
     }
 
+    async function cargarGananciasServicio() {
+
+        try {
+
+            const data =
+                await obtenerDatos(
+                    "Dashboard/costo-ingreso-servicio"
+                );
+
+            const labels =
+                data.detalle_por_servicio.map(
+                    s => s.servicio
+                );
+
+            const ganancias =
+                data.detalle_por_servicio.map(
+                    s => s.ganancia
+                );
+
+            barGananciasChart.data.labels =
+                labels;
+
+            barGananciasChart.data.datasets[0].data =
+                ganancias;
+
+            barGananciasChart.update();
+
+        } catch(error) {
+
+            console.error(
+                "Error cargando ganancias:",
+                error
+            );
+
+        }
+
+    }
+
+   //Funcion para llamar ServiciosMAsDemandados nuevo
+    async function cargarServiciosDemandados() {
+        try {
+
+            const data = await obtenerDatos(
+                "Dashboard/servicios-demandados"
+            );
+            console.log(" Servicios demandados:", data);
+
+            const labels = data.servicios.map(s => s.servicio);
+            const valores = data.servicios.map(s => s.total_ordenes);
+
+            barServiciosChart.data.labels = labels;
+
+            barServiciosChart.data.datasets[0].data = valores;
+
+            barServiciosChart.update();
+
+        } catch (error) {
+
+            console.error(
+                "❌ Error cargando servicios demandados:",
+                error
+            );
+
+        }
+    }
+
+    async function cargarTecnicosFiltro() {
+
+        try {
+
+            const data = await obtenerDatos(
+                "Dashboard/rendimiento-tecnicos"
+            );
+
+            const select =
+                document.getElementById(
+                    "filtroTecnico"
+                );
+
+            select.innerHTML =
+                '<option value="todos">Todos los técnicos</option>';
+
+            data.tecnicos.forEach(t => {
+
+                const option =
+                    document.createElement("option");
+
+                option.value =
+                    t.tecnico;
+
+                option.textContent =
+                    t.tecnico;
+
+                select.appendChild(option);
+
+            });
+
+            console.log(
+                "✅ Técnicos cargados:",
+                data.tecnicos.length
+            );
+
+        }
+        catch(error){
+
+            console.error(
+                "❌ Error cargando técnicos:",
+                error
+            );
+
+        }
+    }
+
+    //Cargar estado de ordenes
+    async function cargarEstadoOrdenes() {
+
+        try {
+
+            const data =
+                await obtenerDatos(
+                    "Dashboard/estado-ordenes"
+                );
+
+            console.log(
+                "📋 Estado órdenes:",
+                data
+            );
+
+            pieEstadosChart.data.labels =
+                data.estados.map(
+                    e => e.estado
+                );
+
+            pieEstadosChart.data.datasets[0].data =
+                data.estados.map(
+                    e => e.total
+                );
+
+            pieEstadosChart.update();
+
+        } catch (error) {
+
+            console.error(
+                "❌ Error cargando estados:",
+                error
+            );
+        }
+    }
+
+
+    //Captacion por canal
+    async function cargarCaptacionCanal() {
+
+    try {
+
+
+            const data =
+                await obtenerDatos(
+                    "Dashboard/captacion-canal"
+                );
+
+            console.log(
+                "📱 Captación por canal:",
+                data
+            );
+
+            pieCanalesChart.data.labels =
+                data.canales.map(
+                    c => c.canal
+                );
+
+            pieCanalesChart.data.datasets[0].data =
+                data.canales.map(
+                    c => c.clientes_obtenidos
+                );
+
+            pieCanalesChart.update();
+
+        } catch (error) {
+
+            console.error(
+                "❌ Error cargando captación:",
+                error
+            );
+
+        }
+    }
+
+
+    //Datos rendimiento de tecnico
+    async function cargarRendimientoTecnicos() {
+        try {
+            // const filtros =
+            //     obtenerParametrosFiltro();
+
+            // const data =
+            //     await obtenerDatos(
+            //         `Dashboard/rendimiento-tecnicos?${filtros}`
+            //     );
+
+            // console.log("Cargando rendimiento técnicos...");
+
+            const data = await obtenerDatos(
+                "Dashboard/rendimiento-tecnicos"
+            );
+
+            console.log(data);
+
+            const tbody =
+                document.getElementById(
+                    "tablaTecnicosBody"
+                );
+
+            tbody.innerHTML = "";
+
+            data.tecnicos.forEach(t => {
+
+                const eficiencia =
+                    t.total_ordenes > 0
+                    ? ((t.completadas / t.total_ordenes) * 100).toFixed(1)
+                    : 0;
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td style="padding:8px;">${t.tecnico}</td>
+                        <td>${t.total_ordenes}</td>
+                        <td>${t.completadas}</td>
+                        <td>${eficiencia}%</td>
+                        <td>${t.pendientes}</td>
+                    </tr>
+                `;
+            });
+
+        } catch (error) {
+
+            console.error(
+                "Error cargando técnicos:",
+                error
+            );
+
+        }
+    }
+
+
+    async function cargarServiciosPorZona() {
+
+        try {
+
+            const data = await obtenerDatos(
+                "Dashboard/servicios-por-zona"
+            );
+
+            console.log("📍 Servicios por zona:", data);
+
+            const zonas = [
+                ...new Set(
+                    data.detalle.map(d => d.zona)
+                )
+            ];
+
+            const servicios = [
+                ...new Set(
+                    data.detalle.map(d => d.servicio)
+                )
+            ];
+
+            const datasets = servicios.map(servicio => {
+
+                return {
+                    label: servicio,
+                    data: zonas.map(zona => {
+
+                        const item = data.detalle.find(
+                            d =>
+                                d.zona === zona &&
+                                d.servicio === servicio
+                        );
+
+                        return item
+                            ? item.total_ordenes
+                            : 0;
+
+                    })
+                };
+
+            });
+
+            barZonasChart.data.labels = zonas;
+
+            barZonasChart.data.datasets = datasets;
+
+            barZonasChart.update();
+
+        }
+        catch (error) {
+
+            console.error(
+                "Error cargando servicios por zona:",
+                error
+            );
+
+        }
+    }
+
+    // function obtenerParametrosFiltro() {
+
+    //     const zona =
+    //         document.getElementById(
+    //             "filtroZona"
+    //         ).value;
+
+    //     const fechaInicio =
+    //         document.getElementById(
+    //             "fechaInicio"
+    //         ).value;
+
+    //     const fechaFin =
+    //         document.getElementById(
+    //             "fechaFin"
+    //         ).value;
+
+    //     const params =
+    //         new URLSearchParams();
+
+    //     if (
+    //         zona &&
+    //         zona !== "todas"
+    //     ) {
+    //         params.append(
+    //             "zona",
+    //             zona
+    //         );
+    //     }
+
+    //     if (fechaInicio) {
+    //         params.append(
+    //             "fechaInicio",
+    //             fechaInicio
+    //         );
+    //     }
+
+    //     if (fechaFin) {
+    //         params.append(
+    //             "fechaFin",
+    //             fechaFin
+    //         );
+    //     }
+
+    //     return params.toString();
+    // }
+
+    //funcion cargar servicios
+    async function cargarKPIs() {
+        try {
+
+            const [
+                ordenes,
+                completadas,
+                estados,
+                tiempo,
+                conversion,
+                finanzas
+            ] = await Promise.all([
+                obtenerDatos("Dashboard/ordenes-por-lapso"),
+                obtenerDatos("Dashboard/ordenes-completadas"),
+                obtenerDatos("Dashboard/estado-ordenes"),
+                obtenerDatos("Dashboard/tiempo-promedio"),
+                obtenerDatos("Dashboard/tasa-conversion"),
+                obtenerDatos("Dashboard/costo-ingreso-servicio")
+            ]);
+
+            const pendientes =
+                estados.estados.find(
+                    e => e.estado === "Pendiente"
+                )?.total || 0;
+
+            document.getElementById(
+                "kpi-instalaciones"
+            ).textContent =
+                ordenes.total_ordenes;
+
+            document.getElementById(
+                "kpi-pendientes"
+            ).textContent =
+                pendientes;
+
+            document.getElementById(
+                "kpi-satisfaccion"
+            ).textContent =
+                completadas.ordenes_completadas;
+
+            document.getElementById(
+                "kpi-tiempo"
+            ).textContent =
+                tiempo.promedio_general_horas + "h";
+
+            document.getElementById(
+                "kpi-conversion"
+            ).textContent =
+                conversion.tasa_conversion + "%";
+            document.getElementById(
+               "kpi-ingresos"
+            ).textContent =
+                "C$ " +
+                finanzas.totales.ingreso_total;
+
+            document.getElementById(
+                "kpi-ganancia"
+            ).textContent =
+                "C$ " +
+                finanzas.totales.ganancia_total;
+
+        } catch (error) {
+
+            console.error(
+                "Error cargando KPIs:",
+                error
+            );
+
+        }
+    }
     function refrescarTodo() {
-        const filtradas = aplicarFiltros();
-        actualizarKPIs(filtradas);
-        actualizarGraficos(filtradas);
+        actualizarGraficos();
     }
-
     // Eventos de filtros
     document.getElementById('aplicarFiltros').addEventListener('click', () => {
         filtroZona = document.getElementById('filtroZona').value;
@@ -219,6 +830,7 @@
         refrescarTodo();
         alert('Filtros restablecidos. Se muestran todas las alertas activas.');
     });
+
 
     // Toggle panels
     document.querySelectorAll('.toggle-group').forEach(group => {
@@ -244,10 +856,27 @@
         });
     });
 
+
     // Inicializar
     crearGraficos();
-    refrescarTodo();
 
+    cargarKPIs();
+
+    cargarEstadoOrdenes();
+
+    cargarCaptacionCanal();
+
+    cargarRendimientoTecnicos();
+
+    cargarServiciosPorZona();
+
+    cargarGananciasServicio();
+
+    cargarMaterialesUtilizados();
+
+    cargarTecnicosFiltro();
+
+    cargarServiciosDemandados();
     // Resize handler
     window.addEventListener('resize', () => {
         barServiciosChart?.resize();
