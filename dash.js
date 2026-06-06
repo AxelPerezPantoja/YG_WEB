@@ -1,6 +1,6 @@
 const API_URL = "http://localhost:5230/api";
 const TOKEN =
-"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1laWQiOiIyIiwidW5pcXVlX25hbWUiOiJBeGVsX1BlcmV6IiwiZW1haWwiOiJheGVscGVyZXowNDA0MDdAZ21haWwuY29tIiwicm9sZSI6IkFkbWluIiwibmJmIjoxNzgwNjI0MTcyLCJleHAiOjE3ODA2NTI5NzIsImlhdCI6MTc4MDYyNDE3MiwiaXNzIjoiQXBpQXV0aCIsImF1ZCI6IkFwaUF1dGhDbGllbnQifQ._TxUvHz8wFdc2MI1pE-L_veTn2pr-SnoC0zSaNxKi2Q";
+"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1laWQiOiIyIiwidW5pcXVlX25hbWUiOiJBeGVsX1BlcmV6IiwiZW1haWwiOiJheGVscGVyZXowNDA0MDdAZ21haWwuY29tIiwicm9sZSI6IkFkbWluIiwibmJmIjoxNzgwNzEzMjY4LCJleHAiOjE3ODA3NDIwNjgsImlhdCI6MTc4MDcxMzI2OCwiaXNzIjoiQXBpQXV0aCIsImF1ZCI6IkFwaUF1dGhDbGllbnQifQ.vPoz-EKU9SVzg3NuqkU8KJEAl3vLFeXAi_pkCr0MASI";
 
 console.log("TOKEN:", TOKEN);
 
@@ -831,31 +831,40 @@ probarConexion();
         alert('Filtros restablecidos. Se muestran todas las alertas activas.');
     });
 
-
-    // Toggle panels
+    // Toggle panels - Versión que siempre inicia con todos visibles al recargar
     document.querySelectorAll('.toggle-group').forEach(group => {
         const checkbox = group.querySelector('input');
         const targetId = group.dataset.target;
+        const targetElement = document.getElementById(targetId);
+        
+        if (!targetElement) return;
+        
+        // FORZAR que al cargar la página, el checkbox esté marcado y el panel visible
+        checkbox.checked = true;
+        targetElement.style.display = '';
+        
+        // Escuchar cambios (esto solo afecta mientras la página está abierta)
         checkbox.addEventListener('change', function() {
-            const el = document.getElementById(targetId);
-            if (el) {
-                if (this.checked) el.classList.remove('hidden');
-                else el.classList.add('hidden');
-                setTimeout(() => {
-                    if (targetId.includes('chart') && this.checked) {
-                        if (barServiciosChart && targetId === 'chart-servicios')
-                            barServiciosChart.resize();
-                        if (lineaIngresosChart && targetId === 'chart-ingresos')
-                            lineaIngresosChart.resize();
-                        if (pieCanalesChart && targetId === 'chart-canales') pieCanalesChart
-                            .resize();
-                        if (barZonasChart && targetId === 'chart-zonas') barZonasChart.resize();
-                    }
-                }, 400);
+            if (targetElement) {
+                if (this.checked) {
+                    targetElement.style.display = '';
+                    // Forzar resize de gráficos si es necesario
+                    setTimeout(() => {
+                        if (targetId.includes('chart')) {
+                            if (barServiciosChart && targetId === 'chart-servicios') barServiciosChart.resize();
+                            if (lineaIngresosChart && targetId === 'chart-ingresos') lineaIngresosChart.resize();
+                            if (pieCanalesChart && targetId === 'chart-canales') pieCanalesChart.resize();
+                            if (barZonasChart && targetId === 'chart-zonas') barZonasChart.resize();
+                            if (pieEstadosChart && targetId === 'chart-estados') pieEstadosChart.resize();
+                            if (barMaterialesChart && targetId === 'chart-materiales') barMaterialesChart.resize();
+                        }
+                    }, 100);
+                } else {
+                    targetElement.style.display = 'none';
+                }
             }
         });
     });
-
 
     // Inicializar
     crearGraficos();
