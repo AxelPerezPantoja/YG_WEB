@@ -67,6 +67,16 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll", policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyMethod()
+              .AllowAnyHeader();
+    });
+});
+
 // Servicios personalizados
 builder.Services.AddScoped<TokenService>();
 builder.Services.AddScoped<AuthService>();
@@ -119,6 +129,8 @@ app.UseMiddleware<RateLimitingMiddleware>();
 app.UseMiddleware<TimingMiddleware>(); 
 // Logging de peticiones (NUEVO)
 app.UseMiddleware<LoggingMiddleware>();
+
+app.UseCors("AllowAll");
 
 // 5. Middleware de autenticación personalizado
 app.UseMiddleware<JwtMiddleware>();
