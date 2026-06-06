@@ -15,7 +15,14 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 // Configurar JWT
 var jwtKey = builder.Configuration["Jwt:Key"] ?? "MiClaveSuperSecretaParaJWT2026!MuyLargaYSegura";
 var key = Encoding.ASCII.GetBytes(jwtKey);
+Console.WriteLine("JWT KEY:");
+Console.WriteLine(jwtKey);
 
+Console.WriteLine("JWT ISSUER:");
+Console.WriteLine(builder.Configuration["Jwt:Issuer"]);
+
+Console.WriteLine("JWT AUDIENCE:");
+Console.WriteLine(builder.Configuration["Jwt:Audience"]);
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -39,6 +46,17 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddAuthorization();
 builder.Services.AddControllers();
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend",
+        policy =>
+        {
+            policy
+                .AllowAnyOrigin()
+                .AllowAnyHeader()
+                .AllowAnyMethod();
+        });
+});
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -123,6 +141,8 @@ if (app.Environment.IsDevelopment())
 
 // Seguridad HTTPS
 app.UseHttpsRedirection();
+
+app.UseCors("AllowFrontend");
 // Límite de peticiones
 app.UseMiddleware<RateLimitingMiddleware>();  
 // Meidicon de tiempo de respuesta 
