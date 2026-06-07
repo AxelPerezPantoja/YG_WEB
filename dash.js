@@ -23,7 +23,7 @@ async function obtenerDatos(endpoint) {
         console.log("Respuesta:", texto);
 
         if (!response.ok) {
-            console.error("❌ Error HTTP:", response.status);
+            console.error(" Error HTTP:", response.status);
             throw new Error(`Error ${response.status}`);
         }
 
