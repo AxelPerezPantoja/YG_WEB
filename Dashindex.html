@@ -19,15 +19,25 @@
             </div>
         </div>
 <div class="filters">
+    <div class="filter-group">
+        <label>📍 Zona</label>
+        <select id="filtroZona">
+            <option value="todas">Todas las zonas</option>
+            <option value="Managua">Managua</option>
+            <option value="Granada">Granada</option>
+            <option value="Masaya">Masaya</option>
+            <option value="Carazo">Carazo</option>
+        </select>
+    </div>
 
     <div class="filter-group">
         <label>⚙️ Servicio</label>
         <select id="filtroServicio">
             <option value="todos">Todos los servicios</option>
-            <option value="Telecomunicaciones">Telecomunicaciones</option>
+            <option value="Internet">Internet</option>
+            <option value="Telefonía">Telefonía</option>
             <option value="Electricidad">Electricidad</option>
             <option value="Seguridad Electrónica">Seguridad Electrónica</option>
-            <option value="Informática">Informática</option>
         </select>
     </div>
 
@@ -39,15 +49,9 @@
     </div>
 
     <div class="actions">
-        <button id="aplicarFiltros">
-            🔍 Aplicar
-        </button>
-
-        <button id="resetFiltros" class="btn-alert">
-            🔔 Alertas (6)
-        </button>
+        <button id="aplicarFiltros">🔍 Aplicar</button>
+        <button id="resetFiltros" class="btn-alert">🔄 Reset Filtros</button>
     </div>
-
 </div>
     </header>
 
