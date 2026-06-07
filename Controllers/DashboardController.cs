@@ -237,7 +237,7 @@ public class DashboardController : ControllerBase
         [FromQuery] string? zona = null)
     {
         var query = _context.OrdenesTrabajo
-            .Where(o => o.EstadoOrden == "Completado" && o.TiempoInstalacionHoras > 0);
+            .Where(o => o.EstadoOrden == "Completada" && o.TiempoInstalacionHoras > 0);
         query = AplicarFiltrosFecha(query, dias, fechaInicio, fechaFin);
         
         if (!string.IsNullOrEmpty(zona))
@@ -510,62 +510,62 @@ public class DashboardController : ControllerBase
     }
 
     // ==========================================
-// 15. Tasa conversión (consulta → conversión)
-// ==========================================
-[HttpGet("tasa-conversion")]
-public async Task<IActionResult> GetTasaConversion(
-    [FromQuery] int? dias = null,
-    [FromQuery] DateTime? fechaInicio = null,
-    [FromQuery] DateTime? fechaFin = null,
-    [FromQuery] string? zona = null)
-{
-    var query = _context.OrdenesTrabajo.AsQueryable();
-    query = AplicarFiltrosFecha(query, dias, fechaInicio, fechaFin);
-    
-    if (!string.IsNullOrEmpty(zona))
-        query = query.Where(o => o.ZonaServicio == zona);
+    // 15. Tasas conversión (consulta → conversión)
+    // ==========================================
+    [HttpGet("tasa-conversion")]
+    public async Task<IActionResult> GetTasaConversion(
+        [FromQuery] int? dias = null,
+        [FromQuery] DateTime? fechaInicio = null,
+        [FromQuery] DateTime? fechaFin = null,
+        [FromQuery] string? zona = null)
+    {
+        var query = _context.OrdenesTrabajo.AsQueryable();
+        query = AplicarFiltrosFecha(query, dias, fechaInicio, fechaFin);
+        
+        if (!string.IsNullOrEmpty(zona))
+            query = query.Where(o => o.ZonaServicio == zona);
 
-    // Traer los datos agregados por zona (sin Math.Round en SQL)
-    var datosPorZona = await query
-        .GroupBy(o => o.ZonaServicio)
-        .Select(g => new
+        // Traer los datos agregados por zona (sin Math.Round en SQL)
+        var datosPorZona = await query
+            .GroupBy(o => o.ZonaServicio)
+            .Select(g => new
+            {
+                zona = g.Key,
+                consultas = g.Sum(o => o.Consultas),
+                conversiones = g.Sum(o => o.Conversiones)
+            })
+            .ToListAsync();
+
+        // Calcular tasa con Math.Round ya en memoria (cliente)
+        var porZona = datosPorZona.Select(d => new
         {
-            zona = g.Key,
-            consultas = g.Sum(o => o.Consultas),
-            conversiones = g.Sum(o => o.Conversiones)
-        })
-        .ToListAsync();
+            zona = d.zona,
+            consultas = d.consultas,
+            conversiones = d.conversiones,
+            tasa = d.consultas > 0 
+                ? Math.Round((double)d.conversiones / d.consultas * 100, 2) 
+                : 0
+        }).OrderByDescending(x => x.tasa).ToList();
 
-    // Calcular tasa con Math.Round ya en memoria (cliente)
-    var porZona = datosPorZona.Select(d => new
-    {
-        zona = d.zona,
-        consultas = d.consultas,
-        conversiones = d.conversiones,
-        tasa = d.consultas > 0 
-            ? Math.Round((double)d.conversiones / d.consultas * 100, 2) 
-            : 0
-    }).OrderByDescending(x => x.tasa).ToList();
+        var totalConsultas = datosPorZona.Sum(d => d.consultas);
+        var totalConversiones = datosPorZona.Sum(d => d.conversiones);
 
-    var totalConsultas = datosPorZona.Sum(d => d.consultas);
-    var totalConversiones = datosPorZona.Sum(d => d.conversiones);
+        var ratio = totalConsultas > 0
+            ? (double)totalConversiones / totalConsultas
+            : 0;
 
-    var ratio = totalConsultas > 0
-        ? (double)totalConversiones / totalConsultas
-        : 0;
+        var periodoTexto = ObtenerPeriodoTexto(dias, fechaInicio, fechaFin);
 
-    var periodoTexto = ObtenerPeriodoTexto(dias, fechaInicio, fechaFin);
-
-    return Ok(new
-    {
-        periodo = periodoTexto,
-        zona_filtro = zona ?? "todas",
-        consultas_totales = totalConsultas,
-        conversiones_totales = totalConversiones,
-        tasa_conversion = Math.Round(ratio * 100, 2),
-        detalle_por_zona = porZona
-    });
-}
+        return Ok(new
+        {
+            periodo = periodoTexto,
+            zona_filtro = zona ?? "todas",
+            consultas_totales = totalConsultas,
+            conversiones_totales = totalConversiones,
+            tasa_conversion = Math.Round(ratio * 100, 2),
+            detalle_por_zona = porZona
+        });
+    }
 
     // ==========================================
     // 16. Satisfacción por servicio
@@ -583,16 +583,25 @@ public async Task<IActionResult> GetTasaConversion(
         if (!string.IsNullOrEmpty(zona))
             query = query.Where(o => o.ZonaServicio == zona);
 
-        var satisfaccion = await query
+        // PASO 1: Traer los datos sin redondear desde la BD
+        var datosSinRedondear = await query
             .GroupBy(o => o.TipoServicio)
             .Select(g => new
             {
                 servicio = g.Key,
-                promedio = Math.Round(g.Average(o => o.SatisfaccionCliente), 2),
+                promedio_bruto = g.Average(o => o.SatisfaccionCliente),
                 total_valoraciones = g.Count()
             })
-            .OrderByDescending(x => x.promedio)
+            .OrderByDescending(x => x.promedio_bruto)
             .ToListAsync();
+
+        // PASO 2: Aplicar el redondeo en memoria (ya tenemos los datos)
+        var satisfaccion = datosSinRedondear.Select(d => new
+        {
+            servicio = d.servicio,
+            promedio = Math.Round(d.promedio_bruto, 2),
+            total_valoraciones = d.total_valoraciones
+        }).ToList();
 
         var periodoTexto = ObtenerPeriodoTexto(dias, fechaInicio, fechaFin);
 
