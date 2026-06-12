@@ -16,13 +16,12 @@ document.addEventListener("DOMContentLoaded", () => {
 		const container = createNotificationContainer();
 
 		const {
-			type = "info", // success, error, warning, info
+			type = "info",
 			title = "",
 			message = "",
-			duration = 4000, // milisegundos
+			duration = 4000,
 		} = options;
 
-		// Iconos según tipo
 		const icons = {
 			success: "✅",
 			error: "❌",
