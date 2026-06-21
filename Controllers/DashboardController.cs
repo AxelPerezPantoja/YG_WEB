@@ -237,7 +237,7 @@ public class DashboardController : ControllerBase
         [FromQuery] string? zona = null)
     {
         var query = _context.OrdenesTrabajo
-            .Where(o => o.EstadoOrden == "Completada" && o.TiempoInstalacionHoras > 0);
+            .Where(o => o.EstadoOrden == "Completado" && o.TiempoInstalacionHoras > 0);
         query = AplicarFiltrosFecha(query, dias, fechaInicio, fechaFin);
         
         if (!string.IsNullOrEmpty(zona))
@@ -304,34 +304,38 @@ public class DashboardController : ControllerBase
     // ==========================================
     // 9. Servicios demandados por zona
     // ==========================================
-    [HttpGet("servicios-por-zona")]
-    public async Task<IActionResult> GetServiciosPorZona(
-        [FromQuery] int? dias = null,
-        [FromQuery] DateTime? fechaInicio = null,
-        [FromQuery] DateTime? fechaFin = null,
-        [FromQuery] string? zona = null)
-    {
-        var query = _context.OrdenesTrabajo.AsQueryable();
-        query = AplicarFiltrosFecha(query, dias, fechaInicio, fechaFin);
-        
-        if (!string.IsNullOrEmpty(zona))
-            query = query.Where(o => o.ZonaServicio == zona);
-
-        var serviciosZona = await query
-            .GroupBy(o => new { o.TipoServicio, o.ZonaServicio })
-            .Select(g => new
-            {
-                servicio = g.Key.TipoServicio,
-                zona = g.Key.ZonaServicio,
-                total_ordenes = g.Count()
-            })
-            .OrderByDescending(x => x.total_ordenes)
-            .ToListAsync();
-
-        var periodoTexto = ObtenerPeriodoTexto(dias, fechaInicio, fechaFin);
-
-        return Ok(new { periodo = periodoTexto, zona_filtro = zona ?? "todas", detalle = serviciosZona });
-    }
+[HttpGet("servicios-por-zona")]
+public async Task<IActionResult> GetServiciosPorZona(
+    [FromQuery] int? dias = null,
+    [FromQuery] DateTime? fechaInicio = null,
+    [FromQuery] DateTime? fechaFin = null,
+    [FromQuery] string? zona = null,
+    [FromQuery] string? categoria = null)
+{
+    var query = _context.OrdenesTrabajo.AsQueryable();
+    query = AplicarFiltrosFecha(query, dias, fechaInicio, fechaFin);
+    
+    if (!string.IsNullOrEmpty(zona))
+        query = query.Where(o => o.ZonaServicio == zona);
+    
+    if (!string.IsNullOrEmpty(categoria) && categoria != "todas")
+        query = query.Where(o => o.CategoriaServicio == categoria);
+    
+    var serviciosZona = await query
+        .GroupBy(o => new { o.TipoServicio, o.ZonaServicio })
+        .Select(g => new
+        {
+            servicio = g.Key.TipoServicio,
+            zona = g.Key.ZonaServicio,
+            total_ordenes = g.Count()
+        })
+        .OrderByDescending(x => x.total_ordenes)
+        .ToListAsync();
+    
+    var periodoTexto = ObtenerPeriodoTexto(dias, fechaInicio, fechaFin);
+    
+    return Ok(new { periodo = periodoTexto, zona_filtro = zona ?? "todas", detalle = serviciosZona });
+}
 
     // ==========================================
     // 10. Materiales más utilizados
@@ -658,6 +662,35 @@ public class DashboardController : ControllerBase
                 ganancia_total = ingresoGeneral - costoGeneral
             },
             detalle_por_servicio = resumen
+        });
+    }
+
+    // ==========================================
+    // 18. Categorías de servicios
+    // ==========================================
+    [HttpGet("categorias-servicios")]
+    public async Task<IActionResult> GetCategoriasServicios()
+    {
+        var categorias = await _context.OrdenesTrabajo
+            .Where(o => o.CategoriaServicio != null)
+            .GroupBy(o => o.CategoriaServicio)
+            .Select(g => new
+            {
+                categoria = g.Key,
+                servicios = g.Select(o => o.TipoServicio).Distinct().ToList()
+            })
+            .ToDictionaryAsync(g => g.categoria, g => g.servicios);
+        
+        var servicios = await _context.OrdenesTrabajo
+            .Select(o => o.TipoServicio)
+            .Distinct()
+            .OrderBy(s => s)
+            .ToListAsync();
+        
+        return Ok(new
+        {
+            categorias = categorias,
+            todos_los_servicios = servicios
         });
     }
 }
